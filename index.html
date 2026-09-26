@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Timer">
+<title>Timer & Cronômetro</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #000; color: #fff; overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; user-select: none; }
+  body { display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  header { display: flex; justify-content: center; gap: 8px; padding: 14px 16px 0; }
+  .tab { background: none; border: 1px solid #333; color: #888; padding: 10px 22px;
+    border-radius: 999px; font-size: 16px; cursor: pointer; }
+  .tab.active { background: #fff; color: #000; border-color: #fff; font-weight: 600; }
+
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 0; padding: 0 12px; }
+  .display { font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1;
+    letter-spacing: -0.02em; white-space: nowrap; font-size: 22vw; transition: color .3s; }
+  .display .ms { font-size: 0.4em; color: #aaa; font-weight: 500; }
+  .display.done { animation: blink 0.6s steps(1) infinite; }
+  @keyframes blink { 50% { color: #000; } }
+
+  .setter { display: flex; gap: 10px; align-items: center; margin-top: 24px; }
+  .setter label { display: flex; flex-direction: column; align-items: center; color: #777; font-size: 12px; gap: 4px; }
+  .setter input { width: 72px; background: #111; border: 1px solid #333; color: #fff;
+    font-size: 28px; text-align: center; padding: 8px 4px; border-radius: 10px; font-variant-numeric: tabular-nums; }
+  .setter span { font-size: 28px; color: #555; padding-top: 14px; }
+  .presets { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  .presets button { background: #111; border: 1px solid #333; color: #ccc; padding: 8px 14px; border-radius: 999px; font-size: 14px; }
+
+  .laps { margin-top: 18px; max-height: 22vh; overflow-y: auto; width: min(420px, 100%);
+    font-variant-numeric: tabular-nums; color: #aaa; font-size: 18px; }
+  .laps div { display: flex; justify-content: space-between; padding: 6px 4px; border-bottom: 1px solid #1a1a1a; }
+
+  footer { display: flex; justify-content: center; align-items: center; gap: 14px; padding: 12px 16px 22px; }
+  .btn { width: 76px; height: 76px; border-radius: 50%; border: 2px solid #fff; background: none; color: #fff;
+    font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn.primary { background: #fff; color: #000; }
+  .btn:disabled { opacity: .3; }
+  .icon-btn { width: 52px; height: 52px; border-radius: 50%; border: 1px solid #333; background: none;
+    color: #aaa; display: grid; place-items: center; cursor: pointer; }
+  .icon-btn svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn.on { color: #000; background: #fff; border-color: #fff; }
+
+  .hidden { display: none !important; }
+
+  /* Horizontal: número gigante, controles discretos */
+  @media (orientation: landscape) {
+    header { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 0; right: 0; padding: 0; opacity: .6; }
+    .tab { padding: 6px 16px; font-size: 13px; }
+    .display { font-size: min(24vw, 62vh); }
+    .setter, .presets { margin-top: 10px; }
+    .laps { max-height: 18vh; font-size: 15px; }
+    footer { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); left: 0; right: 0; padding: 0; opacity: .75; }
+    .btn { width: 60px; height: 60px; font-size: 13px; }
+    .icon-btn { width: 44px; height: 44px; }
+  }
+  /* Modo foco: esconde tudo menos o número (toque para mostrar) */
+  body.focus header, body.focus footer, body.focus .presets, body.focus .laps { opacity: 0; pointer-events: none; transition: opacity .3s; }
+</style>
+</head>
+<body>
+<header>
+  <button class="tab active" data-mode="stopwatch">Cronômetro</button>
+  <button class="tab" data-mode="timer">Timer</button>
+</header>
+
+<main id="main">
+  <div class="display" id="display">00:00<span class="ms">.00</span></div>
+
+  <div id="timerSetup">
+    <div class="setter">
+      <label><input id="inH" type="number" inputmode="numeric" min="0" max="99" value="0">horas</label><span>:</span>
+      <label><input id="inM" type="number" inputmode="numeric" min="0" max="59" value="5">min</label><span>:</span>
+      <label><input id="inS" type="number" inputmode="numeric" min="0" max="59" value="0">seg</label>
+    </div>
+    <div class="presets">
+      <button data-s="60">1 min</button><button data-s="300">5 min</button>
+      <button data-s="600">10 min</button><button data-s="1800">30 min</button>
+    </div>
+  </div>
+
+  <div class="laps" id="laps"></div>
+</main>
+
+<footer>
+  <button class="icon-btn" id="rotateBtn" title="Girar tela (horizontal)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M8 3h8M12 3v4"/></svg>
+  </button>
+  <button class="btn" id="secondaryBtn">Zerar</button>
+  <button class="btn primary" id="primaryBtn">Iniciar</button>
+  <button class="icon-btn" id="fsBtn" title="Tela cheia">
+    <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+</footer>
+
+<script>
+const $ = id => document.getElementById(id);
+const display = $('display'), primaryBtn = $('primaryBtn'), secondaryBtn = $('secondaryBtn');
+const timerSetup = $('timerSetup'), lapsEl = $('laps');
+
+let mode = 'stopwatch';
+const sw = { running: false, start: 0, elapsed: 0, laps: [] };
+const tm = { running: false, end: 0, remaining: 0, total: 0, done: false };
+let raf = null, wakeLock = null, audioCtx = null, beepInterval = null;
+
+function fmt(ms, showCs) {
+  ms = Math.max(0, ms);
+  const totalS = Math.floor(ms / 1000), h = Math.floor(totalS / 3600),
+        m = Math.floor((totalS % 3600) / 60), s = totalS % 60, cs = Math.floor((ms % 1000) / 10);
+  const p = n => String(n).padStart(2, '0');
+  const main = h > 0 ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+  return showCs ? `${main}<span class="ms">.${p(cs)}</span>` : main;
+}
+
+function readInputs() {
+  const v = id => Math.max(0, parseInt($(id).value) || 0);
+  return (v('inH') * 3600 + Math.min(59, v('inM')) * 60 + Math.min(59, v('inS'))) * 1000;
+}
+
+function render() {
+  if (mode === 'stopwatch') {
+    const t = sw.running ? sw.elapsed + (performance.now() - sw.start) : sw.elapsed;
+    display.innerHTML = fmt(t, true);
+    primaryBtn.textContent = sw.running ? 'Pausar' : (sw.elapsed ? 'Retomar' : 'Iniciar');
+    secondaryBtn.textContent = sw.running ? 'Volta' : 'Zerar';
+    secondaryBtn.disabled = !sw.running && !sw.elapsed;
+  } else {
+    let r;
+    if (tm.running) {
+      r = tm.end - Date.now();
+      if (r <= 0) { r = 0; finishTimer(); }
+      tm.remaining = r;
+    } else r = tm.total ? tm.remaining : readInputs();
+    // arredonda pra cima para o timer mostrar 00:01 até o último segundo
+    display.innerHTML = fmt(tm.done ? 0 : Math.ceil(r / 1000) * 1000, false);
+    display.classList.toggle('done', tm.done);
+    timerSetup.classList.toggle('hidden', !!tm.total || tm.done);
+    primaryBtn.textContent = tm.done ? 'OK' : tm.running ? 'Pausar' : (tm.total ? 'Retomar' : 'Iniciar');
+    secondaryBtn.textContent = 'Zerar';
+    secondaryBtn.disabled = !tm.total && !tm.done;
+  }
+  document.title = mode === 'timer' && tm.running ? display.textContent : 'Timer & Cronômetro';
+}
+
+function loop() { render(); raf = (sw.running || tm.running) ? requestAnimationFrame(loop) : null; }
+function kick() { if (!raf) raf = requestAnimationFrame(loop); render(); }
+
+function renderLaps() {
+  lapsEl.innerHTML = sw.laps.map((t, i) => {
+    const prev = i ? sw.laps[i - 1] : 0;
+    return `<div><span>Volta ${i + 1}</span><span>${fmt(t - prev, true).replace(/<[^>]+>/g, '')}</span><span>${fmt(t, true).replace(/<[^>]+>/g, '')}</span></div>`;
+  }).reverse().join('');
+}
+
+/* ---- ações ---- */
+primaryBtn.onclick = () => {
+  unlockAudio();
+  if (mode === 'stopwatch') {
+    if (sw.running) { sw.elapsed += performance.now() - sw.start; sw.running = false; }
+    else { sw.start = performance.now(); sw.running = true; }
+  } else {
+    if (tm.done) return resetTimer();
+    if (tm.running) { tm.remaining = tm.end - Date.now(); tm.running = false; }
+    else {
+      if (!tm.total) { tm.total = readInputs(); tm.remaining = tm.total; if (!tm.total) return; }
+      tm.end = Date.now() + tm.remaining; tm.running = true;
+    }
+  }
+  updateWakeLock(); save(); kick();
+};
+
+secondaryBtn.onclick = () => {
+  if (mode === 'stopwatch') {
+    if (sw.running) { sw.laps.push(sw.elapsed + performance.now() - sw.start); }
+    else { sw.elapsed = 0; sw.laps = []; }
+    renderLaps();
+  } else resetTimer();
+  updateWakeLock(); save(); kick();
+};
+
+function resetTimer() {
+  Object.assign(tm, { running: false, end: 0, remaining: 0, total: 0, done: false });
+  stopAlarm(); updateWakeLock(); save(); kick();
+}
+
+function finishTimer() {
+  tm.running = false; tm.done = true; tm.remaining = 0;
+  startAlarm(); save();
+}
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+  mode = b.dataset.mode;
+  lapsEl.classList.toggle('hidden', mode !== 'stopwatch');
+  if (mode === 'stopwatch') timerSetup.classList.add('hidden');
+  save(); kick();
+});
+
+document.querySelectorAll('.presets button').forEach(b => b.onclick = () => {
+  const s = +b.dataset.s;
+  $('inH').value = Math.floor(s / 3600); $('inM').value = Math.floor((s % 3600) / 60); $('inS').value = s % 60;
+  kick();
+});
+['inH', 'inM', 'inS'].forEach(id => $(id).addEventListener('input', () => kick()));
+
+/* ---- alarme ---- */
+function unlockAudio() {
+  if (!audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep() {
+  if (!audioCtx) return;
+  [0, 0.25, 0.5].forEach(d => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime + d;
+    g.gain.setValueAtTime(0.35, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    o.start(t); o.stop(t + 0.2);
+  });
+}
+function startAlarm() {
+  beep(); beepInterval = setInterval(beep, 1500);
+  if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400]);
+  setTimeout(stopAlarm, 60000);
+}
+function stopAlarm() { clearInterval(beepInterval); beepInterval = null; if (navigator.vibrate) navigator.vibrate(0); }
+
+/* ---- tela sempre ligada ---- */
+async function updateWakeLock() {
+  const need = sw.running || tm.running || tm.done;
+  try {
+    if (need && !wakeLock && 'wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => wakeLock = null);
+    } else if (!need && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { updateWakeLock(); kick(); } });
+
+/* ---- tela cheia e rotação ---- */
+const fsBtn = $('fsBtn'), rotateBtn = $('rotateBtn');
+async function enterFs() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement && el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+}
+fsBtn.onclick = async () => {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) await enterFs();
+    else document.body.classList.toggle('focus');
+  } catch { document.body.classList.toggle('focus'); }
+};
+document.addEventListener('fullscreenchange', () => fsBtn.classList.toggle('on', !!document.fullscreenElement));
+
+let forcedLandscape = false;
+rotateBtn.onclick = async () => {
+  const so = screen.orientation;
+  try {
+    if (!forcedLandscape) {
+      await enterFs();                       // Android exige tela cheia para travar orientação
+      await so.lock('landscape');
+      forcedLandscape = true;
+    } else {
+      so.unlock(); forcedLandscape = false;
+    }
+  } catch {
+    alert('Seu navegador não permite girar automaticamente (ex.: iPhone). Desative o bloqueio de rotação e vire o aparelho — o layout se ajusta sozinho.');
+  }
+  rotateBtn.classList.toggle('on', forcedLandscape);
+};
+
+/* ---- modo foco: toque duplo no número esconde os controles ---- */
+display.addEventListener('dblclick', () => document.body.classList.toggle('focus'));
+$('main').addEventListener('click', e => {
+  if (document.body.classList.contains('focus') && e.target !== display) document.body.classList.remove('focus');
+});
+
+/* ---- persistência (continua certo mesmo se fechar o app) ---- */
+function save() {
+  try {
+    const swSave = { ...sw, elapsed: sw.running ? sw.elapsed + performance.now() - sw.start : sw.elapsed, savedAt: Date.now() };
+    localStorage.setItem('timerpwa', JSON.stringify({ mode, sw: swSave, tm }));
+  } catch {}
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('timerpwa'));
+    if (!d) return;
+    if (d.sw) {
+      sw.laps = d.sw.laps || []; sw.elapsed = d.sw.elapsed || 0;
+      if (d.sw.running) { sw.elapsed += Date.now() - d.sw.savedAt; sw.start = performance.now(); sw.running = true; }
+    }
+    if (d.tm) Object.assign(tm, d.tm);
+    if (tm.running && tm.end <= Date.now()) { tm.running = false; tm.done = true; }
+    if (d.mode === 'timer') document.querySelector('[data-mode="timer"]').click();
+  } catch {}
+}
+window.addEventListener('pagehide', save);
+
+load(); renderLaps();
+if (mode === 'stopwatch') timerSetup.classList.add('hidden');
+updateWakeLock(); kick();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
