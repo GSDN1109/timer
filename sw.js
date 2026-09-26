@@ -22,3 +22,5 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request)));
 });
+
+
