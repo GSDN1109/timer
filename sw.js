@@ -1,4 +1,4 @@
-const CACHE = 'timer-pwa-v4';
+const CACHE = 'timer-pwa-v5';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -22,5 +22,3 @@ self.addEventListener('fetch', e => {
   }
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request)));
 });
-
-
