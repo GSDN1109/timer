@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="Timer">
 <title>Timer & Cronômetro</title>
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; background: #000; color: #fff; overflow: hidden;
@@ -140,21 +140,27 @@ function render() {
     let r;
     if (tm.running) {
       r = tm.end - Date.now();
-      if (r <= 0) { r = 0; finishTimer(); }
-      tm.remaining = r;
+      if (r <= 0) finishTimer();
+      else tm.remaining = r;
     } else r = tm.total ? tm.remaining : readInputs();
-    // arredonda pra cima para o timer mostrar 00:01 até o último segundo
-    display.innerHTML = fmt(tm.done ? 0 : Math.ceil(r / 1000) * 1000, false);
+    if (tm.done) {
+      // tempo esgotado: continua contando em negativo a partir do fim
+      const over = Date.now() - tm.end;
+      display.innerHTML = '-' + fmt(Math.floor(Math.max(0, over) / 1000) * 1000, false);
+    } else {
+      // arredonda pra cima para o timer mostrar 00:01 até o último segundo
+      display.innerHTML = fmt(Math.ceil(r / 1000) * 1000, false);
+    }
     display.classList.toggle('done', tm.done);
     timerSetup.classList.toggle('hidden', !!tm.total || tm.done);
-    primaryBtn.textContent = tm.done ? 'OK' : tm.running ? 'Pausar' : (tm.total ? 'Retomar' : 'Iniciar');
+    primaryBtn.textContent = tm.done ? 'Parar' : tm.running ? 'Pausar' : (tm.total ? 'Retomar' : 'Iniciar');
     secondaryBtn.textContent = 'Zerar';
     secondaryBtn.disabled = !tm.total && !tm.done;
   }
-  document.title = mode === 'timer' && tm.running ? display.textContent : 'Timer & Cronômetro';
+  document.title = mode === 'timer' && (tm.running || tm.done) ? display.textContent : 'Timer & Cronômetro';
 }
 
-function loop() { render(); raf = (sw.running || tm.running) ? requestAnimationFrame(loop) : null; }
+function loop() { render(); raf = (sw.running || tm.running || (mode === 'timer' && tm.done)) ? requestAnimationFrame(loop) : null; }
 function kick() { if (!raf) raf = requestAnimationFrame(loop); render(); }
 
 function renderLaps() {
